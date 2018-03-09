@@ -1,0 +1,11 @@
+*.o
+*.so
+*.exe
+
+.DS_Store
+.Trashes
+._*
+Thumbs.db
+*.sublime-workspace
+*.sublime-project
+
