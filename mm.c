@@ -40,9 +40,10 @@ team_t team = {
 // Double word size
 #define DSIZE 8
 #define CHUNKSIZE (1 << 12)
-
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
+
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #define GET(p) (*(unsigned int*) (p))
 #define PUT(p, val) (*(unsigned int*) (p) = (val))
@@ -86,14 +87,37 @@ int mm_init(void) {
  *     Always allocate a block whose size is a multiple of the alignment.
  */
 void *mm_malloc(size_t size) {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1) {
-        return NULL;
-    } else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+    size_t asize; // Adjustec block size
+    size_t extendsize; // Amount to extend heap if there is no fit
+    char *bp;
+
+    if (size == 0) return NULL;
+
+    if (size < DSIZE)
+        asize = 2 * DSIZE;
+    else
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+    
+    // Search the free list for a fit
+    if ((bp = find_fit(asize)) != NULL) {
+        place(bp, asize);
+        return bp;
     }
+
+    // No fit found. Get more memory and place block
+    extendsize = MAX(asize, CHUNKSIZE);
+    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+        return NULL;
+    place(bp, asize);
+    return bp;
+    // int newsize = ALIGN(size + SIZE_T_SIZE);
+    // void *p = mem_sbrk(newsize);
+    // if (p == (void *)-1) {
+    //     return NULL;
+    // } else {
+    //     *(size_t *)p = size;
+    //     return (void *)((char *)p + SIZE_T_SIZE);
+    // }
 }
 
 /*
@@ -136,7 +160,37 @@ static void *extend_heap(size_t words) {
     return coalesce(bp);
 }
 
+static void place(void *bp, size_t asize) {
+}
+
+static void *find_fit(size_t asize) {
+    return NULL;
+}
+
 static void *coalesce(void* bp) {
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    size_t size = GET_SIZE(HDRP(bp));
+    if (prev_alloc && next_alloc){
+        return bp;
+    }
+    else if (prev_alloc && !next_alloc){
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp),PACK(size,0));
+        PUT(FTRP(bp),PACK(size,0));
+    }
+    else if (!prev_alloc && next_alloc){
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        PUT(FTRP(bp), PACK(size, 0));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+    } else {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+    }
+    
     // TODO: implement coalesce function from textbook
     return bp;
 }

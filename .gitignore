@@ -9,4 +9,4 @@ Thumbs.db
 *.sublime-workspace
 *.sublime-project
 mdriver
-
+.floo*
