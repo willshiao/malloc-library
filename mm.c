@@ -35,19 +35,49 @@ team_t team = {
     ""
 };
 
+// Word size
+#define WSIZE 4
+// Double word size
+#define DSIZE 8
+#define CHUNKSIZE (1 << 12)
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
+#define GET(p) (*(unsigned int*) (p))
+#define PUT(p, val) (*(unsigned int*) (p) = (val))
+
+// Put size and allocated bit into a single word
+#define PACK(size, alloc) ((size) | (alloc))
+
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
-
+// Returns size of block after masking out the allocated bit
+#define GET_SIZE(p) (GET(p) & -2)
+#define GET_ALLOC(p) (GET(p) & 1)
+// Get address of header and fooder from a block pointer
+#define HDRP(bp) ((char*)(bp) - WSIZE)
+#define FTRP(bp) ((char*)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+// Get next and previous blocks from a block ptr
+#define NEXT_BLKP(bp)  ((char*)(bp) + GET_SIZE(((char*)(bp) - WSIZE)))
+#define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE(((char*)(bp) - DSIZE)))
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+
+void* heap_listp = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void) {
+    if((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) return -1;
+    PUT(heap_listp, 0);
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
+    PUT(heap_listp + (3 * WSIZE), PACK(DSIZE, 1));
+    heap_listp += (2 * WSIZE);
+
+    if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
     return 0;
 }
 
@@ -89,4 +119,24 @@ void *mm_realloc(void *ptr, size_t size) {
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
+}
+
+// extend_heap function from textbook
+static void *extend_heap(size_t words) {
+    char * bp;
+    size_t size;
+
+    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
+    if((long) (bp = mem_sbrk(size)) == -1) return NULL;
+
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+
+    return coalesce(bp);
+}
+
+static void *coalesce(void* bp) {
+    // TODO: implement coalesce function from textbook
+    return bp;
 }

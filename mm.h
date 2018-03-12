@@ -5,6 +5,9 @@ extern void *mm_malloc (size_t size);
 extern void mm_free (void *ptr);
 extern void *mm_realloc(void *ptr, size_t size);
 
+static void *extend_heap(size_t);
+static void *coalesce(void*);
+
 
 /* 
  * Students work in teams of one or two.  Teams enter their team name, 
