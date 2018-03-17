@@ -5,10 +5,10 @@ extern void *mm_malloc (size_t size);
 extern void mm_free (void *ptr);
 extern void *mm_realloc(void *ptr, size_t size);
 
-static void *extend_heap(size_t);
-static void *coalesce(void*);
-static void place(void*, size_t);
-static void *find_fit(size_t);
+// static void *extend_heap(size_t);
+// static void *coalesce(void*);
+// static void place(void*, size_t);
+// static void *find_fit(size_t);
 
 
 /* 

@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "ateam",
+    "Piped Piper",
     /* First member's full name */
     "William Shiao",
     /* First member's email address */
@@ -67,6 +67,12 @@ team_t team = {
 
 void* heap_listp = NULL;
 
+static void *extend_heap(size_t);
+static void *coalesce(void*);
+static void place(void*, size_t);
+static void *find_fit(size_t);
+
+// cleared
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -84,6 +90,7 @@ int mm_init(void) {
     return 0;
 }
 
+// cleared
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
@@ -122,17 +129,17 @@ void *mm_malloc(size_t size) {
     // }
 }
 
+// cleared
 /*
  * mm_free - Freeing a block does nothing.
  */
 void mm_free(void *ptr) {
-    if (!ptr){
+    if (!ptr) {
         return;
-    }
-    else{
+    } else {
         size_t size = GET_SIZE(HDRP(ptr));
         if (!heap_listp){
-            if (mm_init() == -1){   //error in mm_init
+            if (mm_init() == -1) { // error in mm_init
                 return;
             }
         }
@@ -146,36 +153,37 @@ void mm_free(void *ptr) {
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
 void *mm_realloc(void *ptr, size_t size) {
-    
-    if (size == 0){
-        mm_free(ptr);
-        return 0;
-    }
-    if (!ptr){
-        return mm_malloc(size);
-    }
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-    
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
+    return (void*) -1;
+    // if (size == 0) {
+    //     mm_free(ptr);
+    //     return 0;
+    // }
+    // if (!ptr) {
+    //     return mm_malloc(size);
+    // }
+    // void *oldptr = ptr;
+    // void *newptr;
+    // size_t copySize;
+
+    // newptr = mm_malloc(size);
+    // if (newptr == NULL)
+    //   return NULL;
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    // if (size < copySize)
+    //   copySize = size;
+    // memcpy(newptr, oldptr, copySize);
+    // mm_free(oldptr);
+    // return newptr;
 }
 
+// cleared
 // extend_heap function from textbook
 static void *extend_heap(size_t words) {
     char * bp;
     size_t size;
 
     size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
-    if((long) (bp = mem_sbrk(size)) == -1) return NULL;
+    if ((long) (bp = mem_sbrk(size)) == -1) return NULL;
 
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
@@ -184,42 +192,50 @@ static void *extend_heap(size_t words) {
     return coalesce(bp);
 }
 
+// cleared
 static void place(void *bp, size_t asize) {
-    size_t csize = GET_SIZE(HDRP(bp));
-    if ((csize - asize) >= (2*DSIZE)){
-        PUT(HDRP(bp),PACK(asize,1));
-        PUT(FTRP(bp), PACK(csize-asize, 0));
-    }
-    else { 
-    PUT(HDRP(bp), PACK(csize, 1));
-    PUT(FTRP(bp), PACK(csize, 1));
+    // Size of the current size
+    size_t currentSize = GET_SIZE(HDRP(bp));
+
+    // If size >= minimum block size
+    if ((currentSize - asize) >= (2 * DSIZE)) {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 0));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(currentSize - asize, 0));
+        PUT(FTRP(bp), PACK(currentSize - asize, 0));
+    } else {
+        PUT(HDRP(bp), PACK(currentSize, 1));
+        PUT(FTRP(bp), PACK(currentSize, 1));
     }
 }
 
+// cleared
 static void *find_fit(size_t asize) {
-    // TODO: finish find_fit
-    // void* p = heap_listp;
-    // while ((p < end) && ((*p & 1) || (*p <= len))) {
-    //     p = p + (*p & -2);
-    // }
-    // return p;
-    return NULL;
+    if(!heap_listp) return NULL;
+    void* p;
+    for(p = heap_listp; GET_SIZE(p) > 0; p = NEXT_BLKP(p)) {
+        if(!GET_ALLOC(p) && GET_SIZE(p) > asize) return p;
+    }
+    return p;
 }
 
+// cleared
 static void *coalesce(void* bp) {
+    // TODO: implement coalesce function from textbook
+
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
-    if (prev_alloc && next_alloc){
+
+    if (prev_alloc && next_alloc) {
         return bp;
-    }
-    else if (prev_alloc && !next_alloc){
+    } else if (prev_alloc && !next_alloc) {
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp),PACK(size,0));
-        PUT(FTRP(bp),PACK(size,0));
-    }
-    else if (!prev_alloc && next_alloc){
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+    } else if (!prev_alloc && next_alloc) {
+        size += GET_SIZE(FTRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
@@ -229,7 +245,5 @@ static void *coalesce(void* bp) {
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-
-    // TODO: implement coalesce function from textbook
     return bp;
 }
