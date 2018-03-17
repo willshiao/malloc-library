@@ -30,9 +30,9 @@ team_t team = {
     /* First member's email address */
     "wshia002@ucr.edu",
     /* Second member's full name (leave blank if none) */
-    "",
+    "James Luo",
     /* Second member's email address (leave blank if none) */
-    ""
+    "jluo011@ucr.edu"
 };
 
 // Word size
@@ -71,14 +71,16 @@ void* heap_listp = NULL;
  * mm_init - initialize the malloc package.
  */
 int mm_init(void) {
-    if((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) return -1;
+    if((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) 
+        return -1;
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3 * WSIZE), PACK(DSIZE, 1));
     heap_listp += (2 * WSIZE);
 
-    if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
+    if(extend_heap(CHUNKSIZE/WSIZE) == NULL) 
+        return -1;
     return 0;
 }
 
@@ -93,7 +95,7 @@ void *mm_malloc(size_t size) {
 
     if (size == 0) return NULL;
 
-    if (size < DSIZE)
+    if (size <= DSIZE)
         asize = 2 * DSIZE;
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
@@ -124,12 +126,34 @@ void *mm_malloc(size_t size) {
  * mm_free - Freeing a block does nothing.
  */
 void mm_free(void *ptr) {
+    if (!ptr){
+        return;
+    }
+    else{
+        size_t size = GET_SIZE(HDRP(ptr));
+        if (!heap_listp){
+            if (mm_init() == -1){   //error in mm_init
+                return;
+            }
+        }
+        PUT(HDRP(ptr), PACK(size, 0));
+        PUT(FTRP(ptr), PACK(size, 0));
+        coalesce(ptr);
+    }
 }
 
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
 void *mm_realloc(void *ptr, size_t size) {
+    
+    if (size == 0){
+        mm_free(ptr);
+        return 0;
+    }
+    if (!ptr){
+        return mm_malloc(size);
+    }
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
@@ -161,9 +185,24 @@ static void *extend_heap(size_t words) {
 }
 
 static void place(void *bp, size_t asize) {
+    size_t csize = GET_SIZE(HDRP(bp));
+    if ((csize - asize) >= (2*DSIZE)){
+        PUT(HDRP(bp),PACK(asize,1));
+        PUT(FTRP(bp), PACK(csize-asize, 0));
+    }
+    else { 
+    PUT(HDRP(bp), PACK(csize, 1));
+    PUT(FTRP(bp), PACK(csize, 1));
+    }
 }
 
 static void *find_fit(size_t asize) {
+    // TODO: finish find_fit
+    // void* p = heap_listp;
+    // while ((p < end) && ((*p & 1) || (*p <= len))) {
+    //     p = p + (*p & -2);
+    // }
+    // return p;
     return NULL;
 }
 
@@ -190,7 +229,7 @@ static void *coalesce(void* bp) {
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-    
+
     // TODO: implement coalesce function from textbook
     return bp;
 }
