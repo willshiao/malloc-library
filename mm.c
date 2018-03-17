@@ -82,7 +82,7 @@ int mm_init(void) {
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
-    PUT(heap_listp + (3 * WSIZE), PACK(DSIZE, 1));
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
     heap_listp += (2 * WSIZE);
 
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL) 
@@ -200,7 +200,7 @@ static void place(void *bp, size_t asize) {
     // If size >= minimum block size
     if ((currentSize - asize) >= (2 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, 1));
-        PUT(FTRP(bp), PACK(asize, 0));
+        PUT(FTRP(bp), PACK(asize, 1));
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(currentSize - asize, 0));
         PUT(FTRP(bp), PACK(currentSize - asize, 0));
@@ -214,8 +214,9 @@ static void place(void *bp, size_t asize) {
 static void *find_fit(size_t asize) {
     if(!heap_listp) return NULL;
     void* p;
-    for(p = heap_listp; GET_SIZE(p) > 0; p = NEXT_BLKP(p)) {
-        if(!GET_ALLOC(p) && GET_SIZE(p) > asize) return p;
+    for(p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
+        printf("%p, size: %d\n", p, asize);
+        if(GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
     }
     return p;
 }
