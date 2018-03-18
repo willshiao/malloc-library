@@ -18,10 +18,6 @@
 #include "mm.h"
 #include "memlib.h"
 
-/*********************************************************
- * NOTE TO STUDENTS: Before you do anything else, please
- * provide your team information in the following struct.
- ********************************************************/
 team_t team = {
     /* Team name */
     "Piped Piper",
@@ -40,7 +36,7 @@ team_t team = {
 // Double word size
 #define DSIZE 8
 #define CHUNKSIZE (1 << 12)
-/* single word (4) or double word (8) alignment */
+// single word (4) or double word (8) alignment
 #define ALIGNMENT 8
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -51,33 +47,42 @@ team_t team = {
 // Put size and allocated bit into a single word
 #define PACK(size, alloc) ((size) | (alloc))
 
-/* rounds up to the nearest multiple of ALIGNMENT */
+// rounds up to the nearest multiple of ALIGNMENT
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
+
 // Returns size of block after masking out the allocated bit
 #define GET_SIZE(p) (GET(p) & -2)
+// Get allocation status of a block
 #define GET_ALLOC(p) (GET(p) & 1)
-// Get address of header and fooder from a block pointer
+
+// Get pointer of header and footer from a block pointer
+// Required for GET_SIZE and GET_ALLOC
 #define HDRP(bp) ((char*)(bp) - WSIZE)
 #define FTRP(bp) ((char*)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
-// Get next and previous blocks from a block ptr
+
+// Get next and previous block pointers from a block ptr
 #define NEXT_BLKP(bp)  ((char*)(bp) + GET_SIZE(((char*)(bp) - WSIZE)))
 #define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE(((char*)(bp) - DSIZE)))
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+// Pointer to the beginning of the heap
 void* heap_listp = NULL;
 
+// static function headers
 static void *extend_heap(size_t);
 static void *coalesce(void*);
 static void place(void*, size_t);
 static void *find_fit(size_t);
 
-// cleared
-/* 
- * mm_init - initialize the malloc package.
+
+/**
+ * Initializes the malloc package
+ *
+ * @return  Returns a negative int on failure and a 0 on success.
  */
 int mm_init(void) {
-    if((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) 
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) 
         return -1;
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
@@ -90,18 +95,22 @@ int mm_init(void) {
     return 0;
 }
 
-// cleared
-/* 
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
+
+/**
+ * Allocates a block and increments the brk pointer.
+ *   Blocks are allocated in sizes that are multiples of the alignment.
+ *
+ * @param   sizes  The size of the new block
+ * @return         A pointer to the start of the new block.
  */
 void *mm_malloc(size_t size) {
-    size_t asize; // Adjustec block size
-    size_t extendsize; // Amount to extend heap if there is no fit
+    size_t asize; // Adjusted block size block size
+    size_t extendsize; // Amount to extend heap by if there is no fit
     char *bp;
 
     if (size == 0) return NULL;
 
+    // Check if the block size is less than the minimum block size
     if (size <= DSIZE)
         asize = 2 * DSIZE;
     else
@@ -129,9 +138,10 @@ void *mm_malloc(size_t size) {
     // }
 }
 
-// cleared
-/*
- * mm_free - Freeing a block does nothing.
+
+/**
+ * Frees a block of memory starting at ptr
+ * @param   ptr   A pointer to the block of memory. Returned by the malloc call.
  */
 void mm_free(void *ptr) {
     if (!ptr) {
@@ -149,8 +159,12 @@ void mm_free(void *ptr) {
     }
 }
 
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+
+/**
+ * Increases the size of an existing block.
+ * @param  ptr  A pointer to the start of the block. Returned by malloc().
+ * @param  size The size of the new block.
+ * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
     return (void*) -1;
@@ -176,8 +190,12 @@ void *mm_realloc(void *ptr, size_t size) {
     // return newptr;
 }
 
-// cleared
-// extend_heap function from textbook
+
+/**
+ * Function to extend the size of the heap. Based on the textbook implmentation.
+ * @param  words TODO: write description
+ * @return       TODO: write description
+ */
 static void *extend_heap(size_t words) {
     char * bp;
     size_t size;
@@ -192,7 +210,12 @@ static void *extend_heap(size_t words) {
     return coalesce(bp);
 }
 
-// cleared
+
+/**
+ * Initializes a block of memory, given the pointer and size.
+ * @param bp      A pointer to the target block of memory.
+ * @param asize   The size of the target block.
+ */
 static void place(void *bp, size_t asize) {
     // Size of the current size
     size_t currentSize = GET_SIZE(HDRP(bp));
@@ -210,21 +233,32 @@ static void place(void *bp, size_t asize) {
     }
 }
 
-// cleared
+
+/**
+ * Finds a suitable location for a block of memory.
+ *   Currently using the first-fit algorithm.
+ *
+ * @param  asize  The size of the memory block we are looking for.
+ * @return        A pointer to the start of the target location. NULL if there is no location found.
+ */
 static void *find_fit(size_t asize) {
+    // Shouldn't happen, but just in case mm_init wasn't called
     if (!heap_listp) return NULL;
     void* p;
+
     for (p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
-        printf("%p, size: %d\n", p, asize);
         if (GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
     }
     return NULL;
 }
 
-// cleared
-static void *coalesce(void* bp) {
-    // TODO: implement coalesce function from textbook
 
+/**
+ * Performs coalescing on memory blocks, given a pointer to the block.
+ * @param  bp  A pointer to the block.
+ * @return     TODO: write description
+ */
+static void *coalesce(void* bp) {
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
