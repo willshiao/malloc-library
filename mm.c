@@ -67,7 +67,7 @@ team_t team = {
 
 // Get next free list item from address of block ptr
 //   Note: + DSIZE is because the address of the previous item is 1 dword away
-#define NEXT_FREEP(bp) (*(void**) (bp + DSIZE))
+#define NEXT_FREEP(bp) (*(void**) (bp + WSIZE))
 #define PREV_FREEP(bp) (*(void**) (bp))
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
