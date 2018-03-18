@@ -63,7 +63,7 @@ team_t team = {
 
 // Get next and previous block pointers from a block ptr
 #define NEXT_BLKP(bp)  ((char*)(bp) + GET_SIZE(HDRP(bp)))
-#define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE(HDRP(bp) - DSIZE))
+#define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
 // Get next free list item from address of block ptr
 //   Note: + DSIZE is because the address of the previous item is 1 dword away
@@ -98,7 +98,7 @@ static void delete(void *);
  * @return  Returns a negative int on failure and a 0 on success.
  */
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) {
+    if ((heap_listp = mem_sbrk(8 * WSIZE)) == (void*)-1) {
         return -1;
     }
 
@@ -254,6 +254,7 @@ static void place(void *bp, size_t asize) {
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(currentSize - asize, 0));
         PUT(FTRP(bp), PACK(currentSize - asize, 0));
+        coalesce(bp);
     } else {
         PUT(HDRP(bp), PACK(currentSize, 1));
         PUT(FTRP(bp), PACK(currentSize, 1));

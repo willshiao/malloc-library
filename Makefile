@@ -10,7 +10,7 @@ DFLAGS = -Wall -m32 -g
 TFLAGS = -Wall -m32 -g -DTRACE
 
 OBJS = mdriver.o mm.o memlib.o fsecs.o fcyc.o clock.o ftimer.o
-SRCS = *.c
+SRCS = clock.c fcyc.c fsecs.c ftimer.c mdriver.c memlib.c mm.c
 
 mdriver: $(OBJS)
 	$(CC) $(CFLAGS) -o mdriver $(OBJS)
