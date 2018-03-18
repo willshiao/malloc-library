@@ -167,27 +167,26 @@ void mm_free(void *ptr) {
  * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
-    return (void*) -1;
-    // if (size == 0) {
-    //     mm_free(ptr);
-    //     return 0;
-    // }
-    // if (!ptr) {
-    //     return mm_malloc(size);
-    // }
-    // void *oldptr = ptr;
-    // void *newptr;
-    // size_t copySize;
+    if (size == 0) {
+        mm_free(ptr);
+        return 0;
+    }
+    if (!ptr) {
+        return mm_malloc(size);
+    }
+    void *oldptr = ptr;
+    void *newptr;
+    size_t copySize;
 
-    // newptr = mm_malloc(size);
-    // if (newptr == NULL)
-    //   return NULL;
-    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    // if (size < copySize)
-    //   copySize = size;
-    // memcpy(newptr, oldptr, copySize);
-    // mm_free(oldptr);
-    // return newptr;
+    newptr = mm_malloc(size);
+    if (newptr == NULL)
+      return NULL;
+    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    if (size < copySize)
+      copySize = size;
+    memcpy(newptr, oldptr, copySize);
+    mm_free(oldptr);
+    return newptr;
 }
 
 
