@@ -252,7 +252,7 @@ static void *find_fit(size_t asize) {
 /**
  * Performs coalescing on memory blocks, given a pointer to the block.
  * @param  bp  A pointer to the block.
- * @return     TODO: write description
+ * @return     A pointer to the coalesced block.
  */
 static void *coalesce(void* bp) {
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
@@ -260,17 +260,21 @@ static void *coalesce(void* bp) {
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {
+        // If the next block and last block are already allocated, we are done
         return bp;
     } else if (prev_alloc && !next_alloc) {
+        // Eat the next block, if possible
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
     } else if (!prev_alloc && next_alloc) {
+        // Eat the previous block, if possible
         size += GET_SIZE(FTRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     } else {
+        // Eat both adjacent blocks, if possible
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
