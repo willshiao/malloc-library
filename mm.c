@@ -212,13 +212,13 @@ static void place(void *bp, size_t asize) {
 
 // cleared
 static void *find_fit(size_t asize) {
-    if(!heap_listp) return NULL;
+    if (!heap_listp) return NULL;
     void* p;
-    for(p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
+    for (p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
         printf("%p, size: %d\n", p, asize);
-        if(GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
+        if (GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
     }
-    return p;
+    return NULL;
 }
 
 // cleared
