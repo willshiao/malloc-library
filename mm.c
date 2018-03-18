@@ -82,16 +82,19 @@ static void *find_fit(size_t);
  * @return  Returns a negative int on failure and a 0 on success.
  */
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) 
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void*)-1) {
         return -1;
+    }
+
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
     heap_listp += (2 * WSIZE);
 
-    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) 
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
         return -1;
+    }
     return 0;
 }
 
@@ -104,18 +107,19 @@ int mm_init(void) {
  * @return         A pointer to the start of the new block.
  */
 void *mm_malloc(size_t size) {
-    size_t asize; // Adjusted block size block size
-    size_t extendsize; // Amount to extend heap by if there is no fit
+    size_t asize;  // Adjusted block size block size
+    size_t extendsize;  // Amount to extend heap by if there is no fit
     char *bp;
 
     if (size == 0) return NULL;
 
     // Check if the block size is less than the minimum block size
-    if (size <= DSIZE)
+    if (size <= DSIZE) {
         asize = 2 * DSIZE;
-    else
+    } else {
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-    
+    }
+
     // Search the free list for a fit
     if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
@@ -140,7 +144,7 @@ void mm_free(void *ptr) {
         return;
     } else {
         size_t size = GET_SIZE(HDRP(ptr));
-        if (!heap_listp){
+        if (!heap_listp) {
             if (mm_init() == -1) {  // error in mm_init
                 return;
             }
@@ -188,20 +192,24 @@ void *mm_realloc(void *ptr, size_t size) {
 
 
 /**
- * Function to extend the size of the heap. Based on the textbook implmentation.
- * @param  words TODO: write description
- * @return       TODO: write description
+ * Function to extend the size of the heap.
+ * @param  words  The number of words to expand the heap by.
+ *                If odd, it will be rounded up to the next even number.
+ * @return        Returns a ptr to the location of the new start of the heap.
  */
 static void *extend_heap(size_t words) {
     char * bp;
     size_t size;
 
+    // Always extend the heap by an even number of words
     size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
-    if ((long) (bp = mem_sbrk(size)) == -1) return NULL;
+    if ((long) (bp = mem_sbrk(size)) == -1) {
+        return NULL;
+    }
 
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+    PUT(HDRP(bp), PACK(size, 0));  // Set header for new block
+    PUT(FTRP(bp), PACK(size, 0));  // Set footer for new block
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // Create new epilogue block
 
     return coalesce(bp);
 }
