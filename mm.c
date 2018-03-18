@@ -179,11 +179,9 @@ void mm_free(void *ptr) {
  * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
-    return (void*) -1;
-    // TODO: modify for explicit free list
     if (size == 0) {  // if size == 0, just free and we're done
         mm_free(ptr);
-        return 0;
+        return ptr;
     }
     // If the current block pointer is invalid, just malloc a new block
     if (!ptr) return mm_malloc(size);
