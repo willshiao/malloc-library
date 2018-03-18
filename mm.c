@@ -44,8 +44,8 @@ team_t team = {
 #define GET(p) (*(unsigned int*) (p))
 #define PUT(p, val) (*(unsigned int*) (p) = (val))
 
-// Put size and allocated bit into a single word
-#define PACK(size, alloc) ((size) | (alloc))
+// Put pointer to next item and allocated bit into a single word
+#define PACK(ptr, alloc) ((ptr) | (alloc))
 
 // rounds up to the nearest multiple of ALIGNMENT
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
@@ -61,13 +61,20 @@ team_t team = {
 #define FTRP(bp) ((char*)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
 // Get next and previous block pointers from a block ptr
-#define NEXT_BLKP(bp)  ((char*)(bp) + GET_SIZE(((char*)(bp) - WSIZE)))
-#define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE(((char*)(bp) - DSIZE)))
+#define NEXT_BLKP(bp)  ((char*)(bp) + GET_SIZE(HDRP(bp)))
+#define PREV_BLKP(bp)  ((char*)(bp) - GET_SIZE(HDRP(bp) - DSIZE))
+
+// Get next free list item from address of block ptr
+//   Note: + DSIZE is because the address of the previous item is 1 dword away
+#define NEXT_FREEP(bp) (*(void**) (bp + DSIZE))
+#define PREV_FREEP(bp) (*(void**) (bp))
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 // Pointer to the beginning of the heap
-void* heap_listp = NULL;
+static void* heap_listp = NULL;
+// Pointer to the beginning of the explicit free list
+static void* e_listp = NULL;
 
 // static function headers
 static void *extend_heap(size_t);
@@ -86,6 +93,7 @@ int mm_init(void) {
         return -1;
     }
 
+    e_listp = heap_listp;
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
@@ -107,6 +115,7 @@ int mm_init(void) {
  * @return         A pointer to the start of the new block.
  */
 void *mm_malloc(size_t size) {
+    // TODO: modify for explicit free list
     size_t asize;  // Adjusted block size block size
     size_t extendsize;  // Amount to extend heap by if there is no fit
     char *bp;
@@ -140,6 +149,7 @@ void *mm_malloc(size_t size) {
  * @param   ptr   A pointer to the block of memory. Returned by the malloc call.
  */
 void mm_free(void *ptr) {
+    // TODO: modify for explicit free list
     if (!ptr) {
         return;
     } else {
@@ -163,6 +173,7 @@ void mm_free(void *ptr) {
  * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
+    // TODO: modify for explicit free list
     if (size == 0) {  // if size == 0, just free and we're done
         mm_free(ptr);
         return 0;
@@ -198,6 +209,7 @@ void *mm_realloc(void *ptr, size_t size) {
  * @return        Returns a ptr to the location of the new start of the heap.
  */
 static void *extend_heap(size_t words) {
+    // TODO: modify for explicit free list
     char * bp;
     size_t size;
 
@@ -221,6 +233,7 @@ static void *extend_heap(size_t words) {
  * @param asize   The size of the target block.
  */
 static void place(void *bp, size_t asize) {
+    // TODO: modify for explicit free list
     // Size of the current size
     size_t currentSize = GET_SIZE(HDRP(bp));
 
@@ -246,6 +259,7 @@ static void place(void *bp, size_t asize) {
  * @return        A pointer to the start of the target location. NULL if there is no location found.
  */
 static void *find_fit(size_t asize) {
+    // TODO: modify for explicit free list
     // Shouldn't happen, but just in case mm_init wasn't called
     if (!heap_listp && mm_init() == -1) return NULL;
 
@@ -263,6 +277,7 @@ static void *find_fit(size_t asize) {
  * @return     A pointer to the coalesced block.
  */
 static void *coalesce(void* bp) {
+    // TODO: modify for explicit free list
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
