@@ -1,6 +1,7 @@
 *.o
 *.so
 *.exe
+*.out
 
 .DS_Store
 .Trashes
@@ -9,4 +10,5 @@ Thumbs.db
 *.sublime-workspace
 *.sublime-project
 mdriver
+mdriver_*
 .floo*
