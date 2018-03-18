@@ -81,6 +81,7 @@ static void *extend_heap(size_t);
 static void *coalesce(void*);
 static void place(void*, size_t);
 static void *find_fit(size_t);
+static void delete(void *);
 
 
 /**
@@ -98,7 +99,8 @@ int mm_init(void) {
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
-    heap_listp += (2 * WSIZE);
+    // heap_listp += (2 * WSIZE);
+    f_listp = heap_listp + (2 * WSIZE);
 
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
         return -1;
@@ -256,24 +258,28 @@ static void place(void *bp, size_t asize) {
 static void *find_fit(size_t asize) {
     // TODO: modify for explicit free list
     // Shouldn't happen, but just in case mm_init wasn't called
-    if (!heap_listp && mm_init() == -1) return NULL;
+    if (!f_listp && mm_init() == -1) return NULL;
 
     void* p;
-    for (p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
-        if (GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
+    for (p = f_listp; GET_ALLOC(HDRP(p)) == 0; p = NEXT_FREEP(p)) {
+        if (GET_SIZE(HDRP(p)) >= asize) return p;
     }
     return NULL;
 }
 
 
 /**
- * Performs coalescing on memory blocks, given a pointer to the block.
+ * Performs coalescing on free memory blocks.
  * @param  bp  A pointer to the block.
  * @return     A pointer to the coalesced block.
  */
 static void *coalesce(void* bp) {
     // TODO: modify for explicit free list
+    printf("Pointer test: %p, %p, %p, %d\n", bp, PREV_BLKP(bp), FTRP(PREV_BLKP(bp)), GET_ALLOC(FTRP(PREV_BLKP(bp))));
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    // Make sure we're not at the beginning of the list
+    if (!prev_alloc) prev_alloc = PREV_BLKP(bp) == bp;
+
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
@@ -283,20 +289,43 @@ static void *coalesce(void* bp) {
     } else if (prev_alloc && !next_alloc) {
         // Eat the next block, if possible
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        delete(NEXT_BLKP(bp));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
     } else if (!prev_alloc && next_alloc) {
         // Eat the previous block, if possible
         size += GET_SIZE(FTRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
+        delete(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
     } else {
         // Eat both adjacent blocks, if possible
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        delete(PREV_BLKP(bp));
+        delete(NEXT_BLKP(bp));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+
+    // Insert block at head of linked list
+    NEXT_FREEP(bp) = f_listp;
+    PREV_FREEP(f_listp) = bp;
+    PREV_FREEP(bp) = NULL;
+    f_listp = bp;
+
     return bp;
+}
+
+
+static void delete(void *ptr) {
+    if (PREV_FREEP(ptr)) {  // If the current block is not the head
+        // ptr->prev->next = ptr->next
+        NEXT_FREEP(PREV_FREEP(ptr)) = NEXT_FREEP(ptr);
+    } else {  // Otherwise, change the head
+        f_listp = NEXT_FREEP(ptr);
+    }
+    // ptr->next->prev = ptr->prev
+    PREV_FREEP(NEXT_FREEP(ptr)) = PREV_FREEP(ptr);
 }
