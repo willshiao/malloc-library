@@ -90,7 +90,7 @@ int mm_init(void) {
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
     heap_listp += (2 * WSIZE);
 
-    if(extend_heap(CHUNKSIZE/WSIZE) == NULL) 
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) 
         return -1;
     return 0;
 }
@@ -128,14 +128,6 @@ void *mm_malloc(size_t size) {
         return NULL;
     place(bp, asize);
     return bp;
-    // int newsize = ALIGN(size + SIZE_T_SIZE);
-    // void *p = mem_sbrk(newsize);
-    // if (p == (void *)-1) {
-    //     return NULL;
-    // } else {
-    //     *(size_t *)p = size;
-    //     return (void *)((char *)p + SIZE_T_SIZE);
-    // }
 }
 
 
@@ -149,7 +141,7 @@ void mm_free(void *ptr) {
     } else {
         size_t size = GET_SIZE(HDRP(ptr));
         if (!heap_listp){
-            if (mm_init() == -1) { // error in mm_init
+            if (mm_init() == -1) {  // error in mm_init
                 return;
             }
         }
@@ -167,21 +159,26 @@ void mm_free(void *ptr) {
  * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
-    if (size == 0) {
+    if (size == 0) {  // if size == 0, just free and we're done
         mm_free(ptr);
         return 0;
     }
-    if (!ptr) {
-        return mm_malloc(size);
-    }
+    // If the current block pointer is invalid, just malloc a new block
+    if (!ptr) return mm_malloc(size);
+
+    // Get size of block to know how much to copy
+    size_t copySize = GET_SIZE(HDRP(ptr));
+    // Optimization: if the new size == current size, don't malloc a new block
+    if (copySize == size) return ptr;
+
     void *oldptr = ptr;
     void *newptr;
-    size_t copySize;
 
     newptr = mm_malloc(size);
+    // If malloc fails, return NULL
     if (newptr == NULL)
       return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    // If shrinking the block, only copy part of the data
     if (size < copySize)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
@@ -242,9 +239,9 @@ static void place(void *bp, size_t asize) {
  */
 static void *find_fit(size_t asize) {
     // Shouldn't happen, but just in case mm_init wasn't called
-    if (!heap_listp) return NULL;
-    void* p;
+    if (!heap_listp && mm_init() == -1) return NULL;
 
+    void* p;
     for (p = heap_listp; GET_SIZE(HDRP(p)) > 0; p = NEXT_BLKP(p)) {
         if (GET_SIZE(HDRP(p)) >= asize && !GET_ALLOC(HDRP(p))) return p;
     }
