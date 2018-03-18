@@ -74,7 +74,7 @@ team_t team = {
 // Pointer to the beginning of the heap
 static void* heap_listp = NULL;
 // Pointer to the beginning of the explicit free list
-static void* e_listp = NULL;
+static void* f_listp = NULL;
 
 // static function headers
 static void *extend_heap(size_t);
@@ -93,7 +93,7 @@ int mm_init(void) {
         return -1;
     }
 
-    e_listp = heap_listp;
+    f_listp = heap_listp + DSIZE;
     PUT(heap_listp, 0);
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
@@ -150,19 +150,14 @@ void *mm_malloc(size_t size) {
  */
 void mm_free(void *ptr) {
     // TODO: modify for explicit free list
-    if (!ptr) {
-        return;
-    } else {
-        size_t size = GET_SIZE(HDRP(ptr));
-        if (!heap_listp) {
-            if (mm_init() == -1) {  // error in mm_init
-                return;
-            }
-        }
-        PUT(HDRP(ptr), PACK(size, 0));
-        PUT(FTRP(ptr), PACK(size, 0));
-        coalesce(ptr);
-    }
+    if (!ptr) return;
+
+    size_t size = GET_SIZE(HDRP(ptr));
+    if (!heap_listp && mm_init() == -1) return;
+
+    PUT(HDRP(ptr), PACK(size, 0));
+    PUT(FTRP(ptr), PACK(size, 0));
+    coalesce(ptr);
 }
 
 
