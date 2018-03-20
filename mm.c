@@ -1,6 +1,6 @@
 /*
  * mm-naive.c - The fastest, least memory-efficient malloc package.
- * 
+ *
  * In this naive approach, a block is allocated by simply incrementing
  * the brk pointer.  A block is pure payload. There are no headers or
  * footers.  Blocks are never coalesced or reused. Realloc is
@@ -128,7 +128,7 @@ int mm_init(void) {
 void *mm_malloc(size_t size) {
     // TODO: modify for explicit free list
     size_t asize;  // Adjusted block size block size
-    size_t extendsize;  // Amount to extend heap by if there is no fit
+  //  size_t extendsize;  // Amount to extend heap by if there is no fit
     char *bp;
 
     if (size == 0) return NULL;
@@ -147,8 +147,8 @@ void *mm_malloc(size_t size) {
     }
 
     // No fit found. Get more memory and place block
-    extendsize = MAX(asize, CHUNKSIZE);
-    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+   // extendsize = MAX(asize, CHUNKSIZE);
+    if ((bp = extend_heap(MAX(asize, CHUNKSIZE) / WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
     return bp;
@@ -163,8 +163,8 @@ void mm_free(void *ptr) {
     // TODO: modify for explicit free list
     if (!ptr) return;
 
+        if (!heap_listp && mm_init() == -1) return;
     size_t size = GET_SIZE(HDRP(ptr));
-    if (!heap_listp && mm_init() == -1) return;
 
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
@@ -179,7 +179,7 @@ void mm_free(void *ptr) {
  * @return      A pointer to the location of the new block.
  */
 void *mm_realloc(void *ptr, size_t size) {
-    if (size == 0) {  // if size == 0, just free and we're done
+    if (size <= 0) {  // if size == 0, just free and we're done
         mm_free(ptr);
         return ptr;
     }
@@ -189,24 +189,35 @@ void *mm_realloc(void *ptr, size_t size) {
     // Get size of block to know how much to copy
     size_t copySize = GET_SIZE(HDRP(ptr));
     // Optimization: if the new size == current size, don't malloc a new block
-    if (copySize == size) return ptr;
+    if (size + 2*DSIZE <= copySize){
+      return ptr;
+    }
+   int next_block_available = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+   int current_size = GET_SIZE(HDRP(ptr));
+   int next_size = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
+  //if we are able to allocate a new block in the next pointer then we do it
+   if (!next_block_available && (next_size + current_size > size + DSIZE)) {
+      delete(NEXT_BLKP(ptr));
+      PUT(HDRP(ptr), PACK(next_size + current_size, 1));
+      PUT(FTRP(ptr), PACK(next_size + current_size, 1));
+      return ptr;
+    }
 
-    void *oldptr = ptr;
-    void *newptr;
 
-    newptr = mm_malloc(size);
+
+
+
+    void *newptr = mm_malloc(size);
     // If malloc fails, return NULL
     if (newptr == NULL)
       return NULL;
     // If shrinking the block, only copy part of the data
     if (size < copySize)
       copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
+    memcpy(newptr, ptr, copySize);
+    mm_free(ptr);
     return newptr;
 }
-
-
 /**
  * Function to extend the size of the heap.
  * @param  words  The number of words to expand the heap by.
@@ -216,10 +227,9 @@ void *mm_realloc(void *ptr, size_t size) {
 static void *extend_heap(size_t words) {
     // TODO: modify for explicit free list
     char * bp;
-    size_t size;
 
     // Always extend the heap by an even number of words
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
+    size_t size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
     if ((long) (bp = mem_sbrk(size)) == -1) {
         return NULL;
     }
