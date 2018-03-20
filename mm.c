@@ -227,6 +227,8 @@ void *mm_realloc(void *ptr, size_t size) {
     mm_free(ptr);
     return newptr;
 }
+
+
 /**
  * Function to extend the size of the heap.
  * @param  words  The number of words to expand the heap by.
@@ -307,12 +309,11 @@ static void *find_fit(size_t asize) {
  */
 static void *coalesce(void* bp) {
     trace_printf(">> Coalesce called on %p\n", bp);
-    size_t prevAlloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp;
+    // Get allocation status of previous element
+    //   also make sure we're not at the beginning of the list
+    size_t prevAlloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || (PREV_BLKP(bp) == bp);
     trace_printf("prevAlloc = %d\n", prevAlloc);
-    // Make sure we're not at the beginning of the list
-    // if (!prevAlloc) prevAlloc = PREV_BLKP(bp) == bp;
 
-    trace_printf("HDRP(NEXT(BP)) = %p\n", HDRP(NEXT_BLKP(bp)));
     size_t nextAlloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     trace_printf("nextAlloc = %d\n", nextAlloc);
     size_t size = GET_SIZE(HDRP(bp));
@@ -333,7 +334,6 @@ static void *coalesce(void* bp) {
         // Eat the next block, if possible
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         delete(NEXT_BLKP(bp));
-        trace_printf(" => Returned from delete\n");
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
     } else if (!prevAlloc && nextAlloc) {
