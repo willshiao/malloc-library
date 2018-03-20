@@ -1,13 +1,13 @@
 /*
- * mm-naive.c - The fastest, least memory-efficient malloc package.
+ * mm.c - A implemention of malloc using a explicit free list.
  *
- * In this naive approach, a block is allocated by simply incrementing
- * the brk pointer.  A block is pure payload. There are no headers or
- * footers.  Blocks are never coalesced or reused. Realloc is
- * implemented directly using mm_malloc and mm_free.
+ * In this implementation, we use the explicit free list method to store the
+ *   location of free blocks. Free blocks are stored in a linked list and
+ *   every time a block if freed, it is added to the front of the list.
  *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ * We also implemented a few optimiziations, like merging adjacent free blocks
+ *   when running remalloc() to avoid having to copy the existing data in memory
+ *   somewhere else.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +35,7 @@ team_t team = {
 #define WSIZE 4
 // Double word size
 #define DSIZE 8
+// Min. block size, multiple of ALIGNMENT
 #define BSIZE 24
 #define CHUNKSIZE (1 << 12)
 // double word alignment
@@ -138,10 +139,11 @@ void *mm_malloc(size_t size) {
 
     if (size == 0) return NULL;
 
-    // Check if the block size is less than the minimum block size
+    // Check if the block size is less than the minimum size
     if (size <= DSIZE) {
-        asize = 2 * DSIZE;
+        asize = BSIZE;
     } else {
+        // Add space for header and footer blocks
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
     }
 
