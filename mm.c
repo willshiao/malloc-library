@@ -37,12 +37,14 @@ team_t team = {
 #define DSIZE 8
 #define BSIZE 24
 #define CHUNKSIZE (1 << 12)
-// single word (4) or double word (8) alignment
+// double word alignment
 #define ALIGNMENT 8
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
+// Read a word at p
 #define GET(p) (*(unsigned int*) (p))
+// Write a word at p
 #define PUT(p, val) (*(unsigned int*) (p) = (val))
 
 // Put pointer to next item and allocated bit into a single word
@@ -84,11 +86,12 @@ static void place(void*, size_t);
 static void *find_fit(size_t);
 static void delete(void *);
 
+// Debugging (trace) build print macro
 #ifdef TRACE
     #define dbg_printf(...) \
         do { printf(__VA_ARGS__); } while (0)
 #else
-    #define dbg_printf(...) do {} while(0)
+    #define dbg_printf(...) do {} while (0)
 #endif
 
 
@@ -106,12 +109,9 @@ int mm_init(void) {
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
-    // heap_listp += (2 * WSIZE);
     f_listp = heap_listp + DSIZE;
-    // NEXT_FREEP(f_listp) = NULL;
-    // PREV_FREEP(f_listp) = NULL;
 
-    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) { // extend_heap failed
         return -1;
     }
     return 0;
@@ -126,9 +126,7 @@ int mm_init(void) {
  * @return         A pointer to the start of the new block.
  */
 void *mm_malloc(size_t size) {
-    // TODO: modify for explicit free list
     size_t asize;  // Adjusted block size block size
-  //  size_t extendsize;  // Amount to extend heap by if there is no fit
     char *bp;
 
     if (size == 0) return NULL;
@@ -147,9 +145,9 @@ void *mm_malloc(size_t size) {
     }
 
     // No fit found. Get more memory and place block
-   // extendsize = MAX(asize, CHUNKSIZE);
-    if ((bp = extend_heap(MAX(asize, CHUNKSIZE) / WSIZE)) == NULL)
+    if ((bp = extend_heap(MAX(asize, CHUNKSIZE) / WSIZE)) == NULL) {
         return NULL;
+    }
     place(bp, asize);
     return bp;
 }
@@ -160,12 +158,14 @@ void *mm_malloc(size_t size) {
  * @param   ptr   A pointer to the block of memory. Returned by the malloc call.
  */
 void mm_free(void *ptr) {
-    // TODO: modify for explicit free list
     if (!ptr) return;
 
-        if (!heap_listp && mm_init() == -1) return;
-    size_t size = GET_SIZE(HDRP(ptr));
+    // See if heap_list is initialized,
+    //   and if not, call mm_init, and return if it fails.
+    if (!heap_listp && mm_init() == -1) return;
 
+    size_t size = GET_SIZE(HDRP(ptr));
+    // Reset allocation status
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
@@ -189,31 +189,32 @@ void *mm_realloc(void *ptr, size_t size) {
     // Get size of block to know how much to copy
     size_t copySize = GET_SIZE(HDRP(ptr));
     // Optimization: if the new size == current size, don't malloc a new block
-    if (size + 2*DSIZE <= copySize){
-      return ptr;
-    }
-   int next_block_available = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
-   int current_size = GET_SIZE(HDRP(ptr));
-   int next_size = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-  //if we are able to allocate a new block in the next pointer then we do it
-   if (!next_block_available && (next_size + current_size > size + DSIZE)) {
-      delete(NEXT_BLKP(ptr));
-      PUT(HDRP(ptr), PACK(next_size + current_size, 1));
-      PUT(FTRP(ptr), PACK(next_size + current_size, 1));
+    if (size + 2 * DSIZE <= copySize) {
       return ptr;
     }
 
+    int currSize = GET_SIZE(HDRP(ptr));
+    int nextAlloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+    int nextSize = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
 
+    // Optimization: if the next block if not allocated and
+    //   there is enough space, expand the block by merging
+    //   the current block and next one
+    if (!nextAlloc && (nextSize + currSize > size + DSIZE)) {
+        delete(NEXT_BLKP(ptr));
+        PUT(HDRP(ptr), PACK(nextSize + currSize, 1));
+        PUT(FTRP(ptr), PACK(nextSize + currSize, 1));
+        return ptr;
+    }
 
-
-
+    // Malloc and return NULL if it fails
     void *newptr = mm_malloc(size);
-    // If malloc fails, return NULL
-    if (newptr == NULL)
-      return NULL;
+    if (newptr == NULL) return NULL;
+
     // If shrinking the block, only copy part of the data
-    if (size < copySize)
-      copySize = size;
+    if (size < copySize) {
+        copySize = size;
+    }
     memcpy(newptr, ptr, copySize);
     mm_free(ptr);
     return newptr;
@@ -225,7 +226,6 @@ void *mm_realloc(void *ptr, size_t size) {
  * @return        Returns a ptr to the location of the new start of the heap.
  */
 static void *extend_heap(size_t words) {
-    // TODO: modify for explicit free list
     char * bp;
 
     // Always extend the heap by an even number of words
@@ -236,7 +236,7 @@ static void *extend_heap(size_t words) {
 
     PUT(HDRP(bp), PACK(size, 0));  // Set header for new block
     PUT(FTRP(bp), PACK(size, 0));  // Set footer for new block
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // Create new epilogue block
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // Create new ending dummy block
 
     dbg_printf("Extending heap by %d words\n", words);
 
@@ -250,15 +250,15 @@ static void *extend_heap(size_t words) {
  * @param asize   The size of the target block.
  */
 static void place(void *bp, size_t asize) {
-    dbg_printf("~~Place called!\n");
+    dbg_printf("~~ Place called!\n");
     // Size of the current size
     size_t currentSize = GET_SIZE(HDRP(bp));
 
-    // If size >= minimum block size
+    // If the leftover space is more than one block
     if ((currentSize - asize) >= BSIZE) {
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
-        delete(bp);
+        delete(bp);  // remove it from the free list
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(currentSize - asize, 0));
         PUT(FTRP(bp), PACK(currentSize - asize, 0));
@@ -268,7 +268,7 @@ static void place(void *bp, size_t asize) {
         PUT(FTRP(bp), PACK(currentSize, 1));
         delete(bp);
     }
-    dbg_printf("~~Place done!\n");
+    dbg_printf("~~ Place done!\n");
 }
 
 
@@ -280,7 +280,6 @@ static void place(void *bp, size_t asize) {
  * @return        A pointer to the start of the target location. NULL if there is no location found.
  */
 static void *find_fit(size_t asize) {
-    // TODO: modify for explicit free list
     // Shouldn't happen, but just in case mm_init wasn't called
     if (!f_listp && mm_init() == -1) return NULL;
 
@@ -294,43 +293,25 @@ static void *find_fit(size_t asize) {
 
 /**
  * Performs coalescing on free memory blocks.
+ *   Joins adjacent free blocks
  * @param  bp  A pointer to the block.
  * @return     A pointer to the coalesced block.
  */
 static void *coalesce(void* bp) {
-    dbg_printf("\n>>> Coalesce called on %p\n", bp);
-    // dbg_printf("Pointer test: %p, %p, %p, %d\n", bp, PREV_BLKP(bp), FTRP(PREV_BLKP(bp)), GET_ALLOC(FTRP(PREV_BLKP(bp))));
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp;
-    dbg_printf("prev_alloc = %d\n", prev_alloc);
+    dbg_printf(">> Coalesce called on %p\n", bp);
+    size_t prevAlloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp;
+    dbg_printf("prevAlloc = %d\n", prevAlloc);
     // Make sure we're not at the beginning of the list
-    // if (!prev_alloc) prev_alloc = PREV_BLKP(bp) == bp;
+    // if (!prevAlloc) prevAlloc = PREV_BLKP(bp) == bp;
 
     dbg_printf("HDRP(NEXT(BP)) = %p\n", HDRP(NEXT_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    dbg_printf("next_alloc = %d\n", next_alloc);
+    size_t nextAlloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    dbg_printf("nextAlloc = %d\n", nextAlloc);
     size_t size = GET_SIZE(HDRP(bp));
 
-    if (prev_alloc && next_alloc) {
-        // If the next block and last block are already allocated, we are done
-        // return bp;
-    } else if (prev_alloc && !next_alloc) {
-        dbg_printf("\n=> Case 1\n");
-        // Eat the next block, if possible
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        delete(NEXT_BLKP(bp));
-        dbg_printf(" => Returned from delete\n");
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-    } else if (!prev_alloc && next_alloc) {
-        dbg_printf("\n=> Case 2\n");
-        // Eat the previous block, if possible
-        size += GET_SIZE(FTRP(PREV_BLKP(bp)));
-        bp = PREV_BLKP(bp);
-        delete(bp);
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-    } else {
-        dbg_printf("\n=> Case 3\n");
+    if (!prevAlloc && !nextAlloc) {
+        dbg_printf("=> Case 1\n");
+
         // Eat both adjacent blocks, if possible
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         delete(PREV_BLKP(bp));
@@ -338,6 +319,24 @@ static void *coalesce(void* bp) {
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
+    } else if (prevAlloc && !nextAlloc) {
+        dbg_printf("=> Case 2\n");
+
+        // Eat the next block, if possible
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        delete(NEXT_BLKP(bp));
+        dbg_printf(" => Returned from delete\n");
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+    } else if (!prevAlloc && nextAlloc) {
+        dbg_printf("=> Case 3\n");
+
+        // Eat the previous block, if possible
+        size += GET_SIZE(FTRP(PREV_BLKP(bp)));
+        bp = PREV_BLKP(bp);
+        delete(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
     }
 
     // Insert block at head of linked list
@@ -350,8 +349,13 @@ static void *coalesce(void* bp) {
 }
 
 
+/**
+ * Delete the targeted block from the explicit free list.
+ * @param ptr  A pointer to the block to be deleted.
+ */
 static void delete(void *ptr) {
     dbg_printf("Delete called w/ ptr = %p!\n", ptr);
+
     if (PREV_FREEP(ptr)) {  // If the current block is not the head
         dbg_printf("-> Case 1!\n");
         // ptr->prev->next = ptr->next
@@ -360,7 +364,9 @@ static void delete(void *ptr) {
         dbg_printf("-> Case 2!\n");
         f_listp = NEXT_FREEP(ptr);
     }
-    dbg_printf("-> Part 2! f_listp = %p\n", f_listp);
+
+    dbg_printf("-> f_listp = %p\n", f_listp);
+
     // ptr->next->prev = ptr->prev
     PREV_FREEP(NEXT_FREEP(ptr)) = PREV_FREEP(ptr);
     dbg_printf("Delete done!\n");
