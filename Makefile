@@ -1,12 +1,12 @@
 #
 # Students' Makefile for the Malloc Lab
 #
-TEAM = bovik
+TEAM = Pied Piper
 VERSION = 1
 
 CC = gcc
 CFLAGS = -Wall -m32 -O2
-DFLAGS = -Wall -m32 -g
+DFLAGS = -Wall -m32 -g -DDEBUG
 TFLAGS = -Wall -m32 -g -DTRACE
 
 OBJS = mdriver.o mm.o memlib.o fsecs.o fcyc.o clock.o ftimer.o

@@ -88,6 +88,13 @@ static void delete(void *);
 
 // Debugging (trace) build print macro
 #ifdef TRACE
+    #define trace_printf(...) \
+        do { printf(__VA_ARGS__); } while (0)
+#else
+    #define trace_printf(...) do {} while (0)
+#endif
+
+#if defined(TRACE) || defined(DEBUG)
     #define dbg_printf(...) \
         do { printf(__VA_ARGS__); } while (0)
 #else
@@ -193,9 +200,10 @@ void *mm_realloc(void *ptr, size_t size) {
       return ptr;
     }
 
+    void *next = NEXT_BLKP(ptr);
     int currSize = GET_SIZE(HDRP(ptr));
-    int nextAlloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
-    int nextSize = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
+    int nextAlloc = GET_ALLOC(HDRP(next));
+    int nextSize = GET_SIZE(HDRP(next));
 
     // Optimization: if the next block if not allocated and
     //   there is enough space, expand the block by merging
@@ -238,7 +246,7 @@ static void *extend_heap(size_t words) {
     PUT(FTRP(bp), PACK(size, 0));  // Set footer for new block
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // Create new ending dummy block
 
-    dbg_printf("Extending heap by %d words\n", words);
+    trace_printf("Extending heap by %d words\n", words);
 
     return coalesce(bp);
 }
@@ -250,7 +258,7 @@ static void *extend_heap(size_t words) {
  * @param asize   The size of the target block.
  */
 static void place(void *bp, size_t asize) {
-    dbg_printf("~~ Place called!\n");
+    trace_printf("~~ Place called!\n");
     // Size of the current size
     size_t currentSize = GET_SIZE(HDRP(bp));
 
@@ -268,7 +276,7 @@ static void place(void *bp, size_t asize) {
         PUT(FTRP(bp), PACK(currentSize, 1));
         delete(bp);
     }
-    dbg_printf("~~ Place done!\n");
+    trace_printf("~~ Place done!\n");
 }
 
 
@@ -298,19 +306,19 @@ static void *find_fit(size_t asize) {
  * @return     A pointer to the coalesced block.
  */
 static void *coalesce(void* bp) {
-    dbg_printf(">> Coalesce called on %p\n", bp);
+    trace_printf(">> Coalesce called on %p\n", bp);
     size_t prevAlloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp;
-    dbg_printf("prevAlloc = %d\n", prevAlloc);
+    trace_printf("prevAlloc = %d\n", prevAlloc);
     // Make sure we're not at the beginning of the list
     // if (!prevAlloc) prevAlloc = PREV_BLKP(bp) == bp;
 
-    dbg_printf("HDRP(NEXT(BP)) = %p\n", HDRP(NEXT_BLKP(bp)));
+    trace_printf("HDRP(NEXT(BP)) = %p\n", HDRP(NEXT_BLKP(bp)));
     size_t nextAlloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    dbg_printf("nextAlloc = %d\n", nextAlloc);
+    trace_printf("nextAlloc = %d\n", nextAlloc);
     size_t size = GET_SIZE(HDRP(bp));
 
     if (!prevAlloc && !nextAlloc) {
-        dbg_printf("=> Case 1\n");
+        trace_printf("=> Case 1\n");
 
         // Eat both adjacent blocks, if possible
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
@@ -320,16 +328,16 @@ static void *coalesce(void* bp) {
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     } else if (prevAlloc && !nextAlloc) {
-        dbg_printf("=> Case 2\n");
+        trace_printf("=> Case 2\n");
 
         // Eat the next block, if possible
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         delete(NEXT_BLKP(bp));
-        dbg_printf(" => Returned from delete\n");
+        trace_printf(" => Returned from delete\n");
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
     } else if (!prevAlloc && nextAlloc) {
-        dbg_printf("=> Case 3\n");
+        trace_printf("=> Case 3\n");
 
         // Eat the previous block, if possible
         size += GET_SIZE(FTRP(PREV_BLKP(bp)));
@@ -354,20 +362,20 @@ static void *coalesce(void* bp) {
  * @param ptr  A pointer to the block to be deleted.
  */
 static void delete(void *ptr) {
-    dbg_printf("Delete called w/ ptr = %p!\n", ptr);
+    trace_printf("Delete called w/ ptr = %p!\n", ptr);
 
     if (PREV_FREEP(ptr)) {  // If the current block is not the head
-        dbg_printf("-> Case 1!\n");
+        trace_printf("-> Case 1!\n");
         // ptr->prev->next = ptr->next
         NEXT_FREEP(PREV_FREEP(ptr)) = NEXT_FREEP(ptr);
     } else {  // Otherwise, change the head
-        dbg_printf("-> Case 2!\n");
+        trace_printf("-> Case 2!\n");
         f_listp = NEXT_FREEP(ptr);
     }
 
-    dbg_printf("-> f_listp = %p\n", f_listp);
+    trace_printf("-> f_listp = %p\n", f_listp);
 
     // ptr->next->prev = ptr->prev
     PREV_FREEP(NEXT_FREEP(ptr)) = PREV_FREEP(ptr);
-    dbg_printf("Delete done!\n");
+    trace_printf("Delete done!\n");
 }
