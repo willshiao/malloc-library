@@ -119,7 +119,7 @@ int mm_init(void) {
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
     f_listp = heap_listp + DSIZE;
 
-    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) { // extend_heap failed
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {  // extend_heap failed
         return -1;
     }
     return 0;
